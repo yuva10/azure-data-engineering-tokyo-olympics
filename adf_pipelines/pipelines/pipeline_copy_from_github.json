@@ -1,0 +1,189 @@
+{
+    "name": "pl_olympics_tokyo_data_ingestion",
+    "properties": {
+        "activities": [
+            {
+                "name": "Lookup_olympics_tokyo_files_list",
+                "type": "Lookup",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "JsonSource",
+                        "storeSettings": {
+                            "type": "HttpReadSettings",
+                            "requestMethod": "GET"
+                        },
+                        "formatSettings": {
+                            "type": "JsonReadSettings"
+                        }
+                    },
+                    "dataset": {
+                        "referenceName": "ds_olympics_tokyo_files_list_http",
+                        "type": "DatasetReference"
+                    },
+                    "firstRowOnly": false
+                }
+            },
+            {
+                "name": "ForEach_olympics_tokyo_files_list",
+                "type": "ForEach",
+                "dependsOn": [
+                    {
+                        "activity": "Lookup_olympics_tokyo_files_list",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('Lookup_olympics_tokyo_files_list').output.value",
+                        "type": "Expression"
+                    },
+                    "isSequential": true,
+                    "activities": [
+                        {
+                            "name": "check_file_exist",
+                            "type": "GetMetadata",
+                            "dependsOn": [],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "dataset": {
+                                    "referenceName": "ds_olympics_tokyo_adls",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "FileName": {
+                                            "value": "@item().sinkFileName",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                },
+                                "fieldList": [
+                                    "exists"
+                                ],
+                                "storeSettings": {
+                                    "type": "AzureBlobFSReadSettings",
+                                    "recursive": true,
+                                    "enablePartitionDiscovery": false
+                                },
+                                "formatSettings": {
+                                    "type": "DelimitedTextReadSettings"
+                                }
+                            }
+                        },
+                        {
+                            "name": "If Condition1",
+                            "type": "IfCondition",
+                            "dependsOn": [
+                                {
+                                    "activity": "check_file_exist",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "userProperties": [],
+                            "typeProperties": {
+                                "expression": {
+                                    "value": "@activity('check_file_exist').output.exists",
+                                    "type": "Expression"
+                                },
+                                "ifFalseActivities": [
+                                    {
+                                        "name": "Copy data olympics Tokyo Data",
+                                        "type": "Copy",
+                                        "dependsOn": [],
+                                        "policy": {
+                                            "timeout": "0.12:00:00",
+                                            "retry": 0,
+                                            "retryIntervalInSeconds": 30,
+                                            "secureOutput": false,
+                                            "secureInput": false
+                                        },
+                                        "userProperties": [],
+                                        "typeProperties": {
+                                            "source": {
+                                                "type": "ExcelSource",
+                                                "storeSettings": {
+                                                    "type": "HttpReadSettings",
+                                                    "requestMethod": "GET"
+                                                }
+                                            },
+                                            "sink": {
+                                                "type": "DelimitedTextSink",
+                                                "storeSettings": {
+                                                    "type": "AzureBlobFSWriteSettings"
+                                                },
+                                                "formatSettings": {
+                                                    "type": "DelimitedTextWriteSettings",
+                                                    "quoteAllText": true,
+                                                    "fileExtension": ".txt"
+                                                }
+                                            },
+                                            "enableStaging": false,
+                                            "translator": {
+                                                "type": "TabularTranslator",
+                                                "typeConversion": true,
+                                                "typeConversionSettings": {
+                                                    "allowDataTruncation": true,
+                                                    "treatBooleanAsNumber": false
+                                                }
+                                            }
+                                        },
+                                        "inputs": [
+                                            {
+                                                "referenceName": "ds_olympics_tokyo_http",
+                                                "type": "DatasetReference",
+                                                "parameters": {
+                                                    "BaseURL": {
+                                                        "value": "item().sourceBaseURL",
+                                                        "type": "Expression"
+                                                    },
+                                                    "RelativeURL": {
+                                                        "value": "@item().sourceRelativeURL",
+                                                        "type": "Expression"
+                                                    }
+                                                }
+                                            }
+                                        ],
+                                        "outputs": [
+                                            {
+                                                "referenceName": "ds_olympics_tokyo_adls",
+                                                "type": "DatasetReference",
+                                                "parameters": {
+                                                    "FileName": {
+                                                        "value": "@item().sinkFileName",
+                                                        "type": "Expression"
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        ],
+        "annotations": [],
+        "lastPublishTime": "2025-11-01T16:49:55Z"
+    },
+    "type": "Microsoft.DataFactory/factories/pipelines"
+}
